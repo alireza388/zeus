@@ -36,7 +36,8 @@ def exit_app():
 
 def main():
     print(f"{C}="*50)
-    print(f"{C}*** Zeus Panel Auto-Deployer ***")
+    print(f"{C} Zeus Panel Auto-Deployer ")
+    print(f"{C}     t.me/IR_NETLIFY ")
     print(f"{C}="*50)
 
     print(f"{C}[*] Downloading zeus.js from GitHub...{RES}")
