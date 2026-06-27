@@ -1,7 +1,9 @@
+
+
 <div align="center">
-  <img width="100%" alt="Zeus Panel Interface" src="https://github.com/user-attachments/assets/c542add1-069c-4f9b-9c20-694b99baf24c" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.2);" />
+  <img width="100%" alt="Zeus Panel Interface" src="https://github.com/user-attachments/assets/364a2ebf-017b-4167-97d0-a933209ebd5a" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.2);" />
   <br><br>
-  <img width="100%" alt="Zeus Panel Status" src="https://github.com/user-attachments/assets/db70c33f-430c-428c-90eb-28c2e2e1ca02" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.2);" />
+  <img width="100%" alt="Zeus Panel Status" src="https://github.com/user-attachments/assets/20f1ec3d-6871-4517-adf5-a638598320cf" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.2);" />
   
   <br><br>
 
