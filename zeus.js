@@ -748,11 +748,22 @@ const SubscriptionService = {
       });
     });
 
+    const downloadBytes = Math.floor((user.used_gb || 0) * 1073741824);
+    const totalBytes = user.limit_gb ? Math.floor(user.limit_gb * 1073741824) : 0;
+    let expireTimestamp = 0;
+    
+    if (user.expiry_days && user.created_at) {
+        expireTimestamp = Math.floor((new Date(user.created_at).getTime() + (user.expiry_days * 86400000)) / 1000);
+    }
+
+    const subUserInfo = `upload=0; download=${downloadBytes}; total=${totalBytes}; expire=${expireTimestamp}`;
+
     return new Response(JSON.stringify(configArray, null, 2), {
       headers: { 
         "Content-Type": "text/plain; charset=utf-8",
         "Access-Control-Allow-Origin": "*",
-        "Cache-Control": "no-store"
+        "Cache-Control": "no-store",
+        "Subscription-Userinfo": subUserInfo
       }
     });
   },
@@ -794,11 +805,22 @@ const SubscriptionService = {
     const plainContent = noise + links.join('\n');
     const subContent = btoa(unescape(encodeURIComponent(plainContent)));
 
+    const downloadBytes = Math.floor((user.used_gb || 0) * 1073741824);
+    const totalBytes = user.limit_gb ? Math.floor(user.limit_gb * 1073741824) : 0;
+    let expireTimestamp = 0;
+    
+    if (user.expiry_days && user.created_at) {
+        expireTimestamp = Math.floor((new Date(user.created_at).getTime() + (user.expiry_days * 86400000)) / 1000);
+    }
+
+    const subUserInfo = `upload=0; download=${downloadBytes}; total=${totalBytes}; expire=${expireTimestamp}`;
+
     return new Response(subContent, {
       headers: { 
         "Content-Type": "text/plain; charset=utf-8",
         "Access-Control-Allow-Origin": "*",
-        "Cache-Control": "no-store"
+        "Cache-Control": "no-store",
+        "Subscription-Userinfo": subUserInfo
       }
     });
   }
@@ -937,7 +959,7 @@ async function handleVLESS(env, storedData = null, ctx = null) {
         if (!validUUID) return;
         
         tickCount++;
-        if (tickCount >= 4) {
+        if (tickCount >= 1) {
           tickCount = 0;
           const user = await env.DB.prepare("SELECT is_active, limit_gb, used_gb, limit_req, used_req, expiry_days, created_at FROM users WHERE uuid = ?").bind(validUUID).first();
           
@@ -969,7 +991,7 @@ async function handleVLESS(env, storedData = null, ctx = null) {
 
           const now = Date.now();
           const lastRecorded = GLOBAL_LAST_ACTIVE_WRITE.get(username) || 0;
-          if (now - lastRecorded > 60000) {
+          if (now - lastRecorded > 15000) {
             GLOBAL_LAST_ACTIVE_WRITE.set(username, now);
             await env.DB.prepare("UPDATE users SET last_active = ? WHERE username = ?").bind(now, username).run();
           }
@@ -2344,14 +2366,14 @@ const HTML_TEMPLATES = {
                 <thead>
                     <tr class="bg-gray-100 dark:bg-zinc-900/50 border-b border-gray-200 dark:border-amoled-border text-xs text-gray-500 dark:text-gray-400 text-center">
                         <th class="p-4">نام کاربر و عملیات</th>
-                        <th class="p-4">لینک ساب</th>
-                        <th class="p-4">پروتکل</th>
-                        <th class="p-4">پورت</th>
-                        <th class="p-4">وضعیت حجم</th>
-                        <th class="p-4">وضعیت ریکوئست</th>
-                        <th class="p-4">وضعیت زمان</th>
-                        <th class="p-4">کاربران آنلاین</th>
-                        <th class="p-4">تاریخ ساخت</th>
+                        <th class="p-2 border-r border-gray-200 dark:border-zinc-800">لینک ساب</th>
+                        <th class="p-2 border-r border-gray-200 dark:border-zinc-800">پروتکل</th>
+                        <th class="p-2 border-r border-gray-200 dark:border-zinc-800">پورت</th>
+                        <th class="p-2 border-r border-gray-200 dark:border-zinc-800">وضعیت حجم</th>
+                        <th class="p-2 border-r border-gray-200 dark:border-zinc-800">وضعیت ریکوئست</th>
+                        <th class="p-2 border-r border-gray-200 dark:border-zinc-800">وضعیت زمان</th>
+                        <th class="p-2 border-r border-gray-200 dark:border-zinc-800">کاربران آنلاین</th>
+                        <th class="p-2 border-r border-gray-200 dark:border-zinc-800">تاریخ ساخت</th>
                     </tr>
                 </thead>
                 <tbody id="users-tbody" class="divide-y divide-gray-150 dark:divide-amoled-border text-sm"></tbody>
@@ -3034,68 +3056,68 @@ const HTML_TEMPLATES = {
                         : '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
 
                     return '<tr class="hover:bg-gray-50 dark:hover:bg-zinc-900/40 border-b border-gray-100 dark:border-zinc-800 last:border-0">' +
-                            '<td class="p-4">' +
-                                '<div class="flex flex-col gap-3">' +
-                                    '<div class="flex items-center gap-2">' +
-                                        '<span class="font-bold text-gray-900 dark:text-zinc-100">' + user.username + '</span>' +
+                            '<td class="p-2 border-r border-gray-100 dark:border-zinc-800 text-center">' +
+                                '<div class="flex flex-col items-center gap-1.5 w-[140px] mx-auto select-none">' +
+                                    '<span class="font-bold text-gray-900 dark:text-zinc-100 text-sm truncate max-w-full">' + user.username + '</span>' +
+                                    '<div class="flex gap-1 w-full justify-center text-center">' +
                                         (user.is_active === 0 ? '<span class="px-1.5 py-0.5 text-[10px] font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 rounded-md">قطع</span>' : '<span class="px-1.5 py-0.5 text-[10px] font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded-md">فعال</span>') +
                                         (user.is_online === 1 ? '<span class="px-1.5 py-0.5 text-[10px] font-medium bg-emerald-500 text-white rounded-md animate-pulse" dir="rtl">● آنلاین (' + (user.online_count || 0) + (user.max_connections ? '/' + user.max_connections : '') + ')</span>' : '<span class="px-1.5 py-0.5 text-[10px] font-medium bg-gray-200 text-gray-600 dark:bg-zinc-800 dark:text-zinc-400 rounded-md">آفلاین</span>') +
                                     '</div>' +
-                                    '<div class="flex gap-1.5">' +
-                                        '<button onclick="copyConfig(\\'' + encodeURIComponent(user.username) + '\\')" title="کپی کانفیگ" class="p-1.5 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md transition shadow-sm"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg></button>' +
-                                        '<button onclick="copyJsonConfig(\\'' + encodeURIComponent(user.username) + '\\')" title="کپی JSON" class="p-1.5 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 hover:bg-purple-50 dark:hover:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-md transition shadow-sm"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg></button>' +
-                                        '<button onclick="showQR(\\'' + encodeURIComponent(user.username) + '\\')" title="کد QR" class="p-1.5 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 hover:bg-green-50 dark:hover:bg-green-900/30 text-green-600 dark:text-green-400 rounded-md transition shadow-sm"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm14 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg></button>' +
-                                        '<button onclick="toggleUserStatus(\\'' + encodeURIComponent(user.username) + '\\')" title="' + statusBtnTitle + '" class="p-1.5 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 ' + statusBtnColor + ' rounded-md transition shadow-sm">' + statusBtnIcon + '</button>' +
-                                        '<button onclick="editUser(\\'' + encodeURIComponent(user.username) + '\\')" title="ویرایش" class="p-1.5 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 hover:bg-yellow-50 dark:hover:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 rounded-md transition shadow-sm"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg></button>' +
-                                        '<button onclick="deleteUser(\\'' + encodeURIComponent(user.username) + '\\')" title="حذف" class="p-1.5 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 hover:bg-red-50 dark:hover:bg-red-950/20 text-red-600 dark:text-red-400 rounded-md transition shadow-sm"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>' +
+                                    '<div class="grid grid-cols-3 gap-1 w-full">' +
+                                        '<button onclick="copyConfig(\\'' + encodeURIComponent(user.username) + '\\')" title="کپی کانفیگ" class="p-1.5 flex items-center justify-center bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md transition shadow-sm"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg></button>' +
+                                        '<button onclick="copyJsonConfig(\\'' + encodeURIComponent(user.username) + '\\')" title="کپی JSON" class="p-1.5 flex items-center justify-center bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 hover:bg-purple-50 dark:hover:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-md transition shadow-sm"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg></button>' +
+                                        '<button onclick="showQR(\\'' + encodeURIComponent(user.username) + '\\')" title="کد QR" class="p-1.5 flex items-center justify-center bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 hover:bg-green-50 dark:hover:bg-green-900/30 text-green-600 dark:text-green-400 rounded-md transition shadow-sm"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm14 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg></button>' +
+                                        '<button onclick="editUser(\\'' + encodeURIComponent(user.username) + '\\')" title="ویرایش" class="p-1.5 flex items-center justify-center bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 hover:bg-yellow-50 dark:hover:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 rounded-md transition shadow-sm"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg></button>' +
+                                        '<button onclick="deleteUser(\\'' + encodeURIComponent(user.username) + '\\')" title="حذف" class="p-1.5 flex items-center justify-center bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 hover:bg-red-50 dark:hover:bg-red-950/20 text-red-600 dark:text-red-400 rounded-md transition shadow-sm"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>' +
+                                        '<button onclick="toggleUserStatus(\\'' + encodeURIComponent(user.username) + '\\')" title="' + statusBtnTitle + '" class="p-1.5 flex items-center justify-center bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 ' + statusBtnColor + ' rounded-md transition shadow-sm">' + statusBtnIcon + '</button>' +
                                     '</div>' +
                                 '</div>' +
                             '</td>' +
-                            '<td class="p-4">' +
-                                '<div class="flex flex-col gap-2 min-w-[140px]">' +
-                                    '<div class="flex gap-1">' +
-                                        '<button onclick="copySubLink(\\'' + encodeURIComponent(user.username) + '\\')" class="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-lg text-xs font-bold transition border border-indigo-200 dark:border-indigo-800">' +
-                                            '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>' +
-                                            'ساب متنی' +
-                                        '</button>' +
-                                        '<button onclick="showSubQR(\\'' + encodeURIComponent(user.username) + '\\', \\'normal\\')" title="QR ساب متنی" class="px-2 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-lg text-xs font-bold transition border border-indigo-200 dark:border-indigo-800">' +
-                                            '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm14 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>' +
-                                        '</button>' +
-                                    '</div>' +
-                                    '<div class="flex gap-1">' +
-                                        '<button onclick="copyJsonSubLink(\\'' + encodeURIComponent(user.username) + '\\')" class="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/50 rounded-lg text-xs font-bold transition border border-purple-200 dark:border-purple-800">' +
-                                            '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>' +
-                                            'ساب JSON' +
-                                        '</button>' +
-                                        '<button onclick="showSubQR(\\'' + encodeURIComponent(user.username) + '\\', \\'json\\')" title="QR ساب JSON" class="px-2 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/50 rounded-lg text-xs font-bold transition border border-purple-200 dark:border-purple-800">' +
-                                            '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm14 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>' +
-                                        '</button>' +
-                                    '</div>' +
-                                    '<div class="flex gap-1">' +
-                                        '<button onclick="copyStatusLink(\\'' + encodeURIComponent(user.username) + '\\')" class="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 rounded-lg text-xs font-bold transition border border-emerald-200 dark:border-emerald-800">' +
-                                            '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>' +
-                                            'صفحه وضعیت' +
-                                        '</button>' +
-                                    '</div>' +
-                                '</div>' +
-                            '</td>' +
-                            '<td class="p-4 text-xs font-mono uppercase text-blue-500 font-semibold">VLESS</td>' +
-                            '<td class="p-4 text-xs">' + 
-                                '<div class="flex flex-wrap gap-1 max-w-[160px]">' +
-                                    String(user.port || "").split(",").map(function(p) {
-                                        p = p.trim();
-                                        if (!p) return "";
-                                        var isTls = tlsPorts.includes(p);
-                                        return '<span class="inline-block px-1.5 py-0.5 text-[10px] font-semibold rounded ' + (isTls ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400') + '">' + p + '</span>';
-                                    }).join("") +
-                                '</div>' +
-                            '</td>' +
-                            '<td class="p-4">' + volumeHtml + '</td>' +
-                            '<td class="p-4">' + reqHtml + '</td>' +
-                            '<td class="p-4">' + expiryHtml + '</td>' +
-                            '<td class="p-4">' + onlineHtml + '</td>' +
-                            '<td class="p-4 text-xs text-gray-500">' + createdDate + '</td>' +
-                        '</tr>';
+                            '<td class="p-2 border-r border-gray-100 dark:border-zinc-800">' +
+							    '<div class="flex flex-col gap-2 min-w-[140px]">' +
+							        '<div class="flex gap-1">' +
+							            '<button onclick="copySubLink(\\'' + encodeURIComponent(user.username) + '\\')" class="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-lg text-xs font-bold transition border border-indigo-200 dark:border-indigo-800">' +
+							                '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>' +
+							                'ساب متنی' +
+							            '</button>' +
+							            '<button onclick="showSubQR(\\'' + encodeURIComponent(user.username) + '\\', \\'normal\\')" title="QR ساب متنی" class="px-2 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-lg text-xs font-bold transition border border-indigo-200 dark:border-indigo-800">' +
+							                '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm14 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>' +
+							            '</button>' +
+							        '</div>' +
+							        '<div class="flex gap-1">' +
+							            '<button onclick="copyJsonSubLink(\\'' + encodeURIComponent(user.username) + '\\')" class="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/50 rounded-lg text-xs font-bold transition border border-purple-200 dark:border-purple-800">' +
+							                '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>' +
+							                'ساب JSON' +
+							            '</button>' +
+							            '<button onclick="showSubQR(\\'' + encodeURIComponent(user.username) + '\\', \\'json\\')" title="QR ساب JSON" class="px-2 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/50 rounded-lg text-xs font-bold transition border border-purple-200 dark:border-purple-800">' +
+							                '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm14 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>' +
+							            '</button>' +
+							        '</div>' +
+							        '<div class="flex gap-1">' +
+							            '<button onclick="copyStatusLink(\\'' + encodeURIComponent(user.username) + '\\')" class="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 rounded-lg text-xs font-bold transition border border-emerald-200 dark:border-emerald-800">' +
+							                '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>' +
+							                'صفحه وضعیت' +
+							            '</button>' +
+							        '</div>' +
+							    '</div>' +
+							'</td>' +
+							'<td class="p-2 border-r border-gray-100 dark:border-zinc-800 text-xs font-mono uppercase text-blue-500 font-semibold text-center">VLESS</td>' +
+							'<td class="p-2 border-r border-gray-100 dark:border-zinc-800 text-xs">' + 
+							    '<div class="grid grid-flow-col grid-rows-5 gap-1.5 w-fit mx-auto">' +
+							        String(user.port || "").split(",").map(function(p) {
+							            p = p.trim();
+							            if (!p) return "";
+							            var isTls = tlsPorts.includes(p);
+							            return '<span class="inline-block w-10 text-center px-1 py-0.5 text-[10px] font-semibold rounded ' + (isTls ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400') + '">' + p + '</span>';
+							        }).join("") +
+							    '</div>' +
+							'</td>' +
+							'<td class="p-2 border-r border-gray-100 dark:border-zinc-800">' + volumeHtml + '</td>' +
+							'<td class="p-2 border-r border-gray-100 dark:border-zinc-800">' + reqHtml + '</td>' +
+							'<td class="p-2 border-r border-gray-100 dark:border-zinc-800">' + expiryHtml + '</td>' +
+							'<td class="p-2 border-r border-gray-100 dark:border-zinc-800">' + onlineHtml + '</td>' +
+							'<td class="p-2 border-r border-gray-100 dark:border-zinc-800 text-xs text-gray-500 text-center">' + createdDate + '</td>' +
+							'</tr>';
                 }).join('');
             }
         }
@@ -3499,38 +3521,40 @@ function openUsageWarning() {
             });
         }
 
-        function editUser(encodedUsername) {
-            const username = decodeURIComponent(encodedUsername);
-            const user = window.allUsers.find(u => u.username === username);
-            if (!user) {
-                alert('کاربر یافت نشد!');
-                return;
-            }
+function editUser(encodedUsername) {
+    const username = decodeURIComponent(encodedUsername);
+    const user = window.allUsers.find(u => u.username === username);
+    if (!user) {
+        alert('کاربر یافت نشد!');
+        return;
+    }
 
-            isEditMode = true;
-            editingUsername = username;
+    isEditMode = true;
+    editingUsername = username;
 
-            document.getElementById('modal-title').innerText = 'ویرایش کاربر: ' + username;
-            document.getElementById('submit-btn').innerText = 'ذخیره تغییرات';
+    document.getElementById('modal-title').innerText = 'ویرایش کاربر: ' + username;
+    document.getElementById('submit-btn').innerText = 'ذخیره تغییرات';
 
-            const nameInput = document.getElementById('input-name');
-            nameInput.value = username;
-            nameInput.disabled = true;
+    const nameInput = document.getElementById('input-name');
+    nameInput.value = username;
+    nameInput.disabled = true;
 
-            document.getElementById('input-limit').value = user.limit_gb || '';
-            document.getElementById('input-expiry').value = user.expiry_days || '';
-            document.getElementById('input-req-limit').value = user.limit_req || '';
-            document.getElementById('input-max-connections').value = user.max_connections || '';
+    document.getElementById('input-limit').value = user.limit_gb || '';
+    document.getElementById('input-expiry').value = user.expiry_days || '';
+    document.getElementById('input-req-limit').value = user.limit_req || '';
+    document.getElementById('input-max-connections').value = user.max_connections || '';
+    
+    document.getElementById('input-ips').value = user.ips || '';
 
-            document.getElementById('fingerprint-select').value = user.fingerprint || 'chrome';
+    document.getElementById('fingerprint-select').value = user.fingerprint || 'chrome';
 
-            const userPorts = String(user.port || '').split(',').map(p => p.trim());
-            document.querySelectorAll('input[name="ports"]').forEach(cb => {
-                cb.checked = userPorts.includes(cb.value);
-            });
+    const userPorts = String(user.port || '').split(',').map(p => p.trim());
+    document.querySelectorAll('input[name="ports"]').forEach(cb => {
+        cb.checked = userPorts.includes(cb.value);
+    });
 
-            toggleModal(true);
-        }
+    toggleModal(true);
+}
 
         async function deleteUser(encodedUsername) {
             const username = decodeURIComponent(encodedUsername);
@@ -3722,7 +3746,7 @@ function openUsageWarning() {
                 window.location.reload();
             }
         }
-const CURRENT_VERSION = '1.4.2';
+const CURRENT_VERSION = '1.4.3';
 const UPDATE_FIX = "constsCURRENT_VERSION='d.d.d'";
 
 		async function checkForUpdates(isManual = false) {
@@ -3904,7 +3928,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderPortCheckboxes();
             loadUsers();
             loadLocations();
-            setInterval(() => loadUsers(true), 60000);
+            setInterval(() => loadUsers(true), 10000);
             setTimeout(() => checkForUpdates(false), 2000);
         });
     </script>
