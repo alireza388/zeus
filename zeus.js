@@ -704,7 +704,6 @@ async function handleVLESS(env, storedData = null, ctx = null, request = null) {
 		isOfflineSet = true;
 		const uname = username;
 		if (!uname) return;
-
 		if (clientIP && clientIP !== "unknown" && validUUID) {
 			const removeIpTask = async () => {
 				try {
@@ -735,7 +734,6 @@ async function handleVLESS(env, storedData = null, ctx = null, request = null) {
 			if (ctx) ctx.waitUntil(removeIpTask());
 			else removeIpTask();
 		}
-
 		let activeCount = ACTIVE_CONNECTIONS_COUNT.get(uname) || 1;
 		activeCount = activeCount - 1;
 		if (activeCount <= 0) {
@@ -803,15 +801,11 @@ async function handleVLESS(env, storedData = null, ctx = null, request = null) {
 								isExpired = true;
 							}
 						}
-
-						// Heartbeat IP Limit enforcement (Database-Backed)
 						if (!isExpired && clientIP && clientIP !== "unknown") {
 							let activeIps = {};
 							try {
 								activeIps = JSON.parse(user.active_ips || '{}');
 							} catch (e) {}
-
-							// Clean up expired (no activity for 30 seconds)
 							const nowTime = Date.now();
 							let hasChanges = false;
 							for (const [ip, data] of Object.entries(activeIps)) {
@@ -821,9 +815,6 @@ async function handleVLESS(env, storedData = null, ctx = null, request = null) {
 									hasChanges = true;
 								}
 							}
-
-							// If our own IP was deleted, it means we haven't sent keepalives for 30 seconds.
-							// So we are inactive/dead.
 							if (!activeIps[clientIP]) {
 								isIpLimitExpired = true;
 								console.log(`[Heartbeat] IP ${clientIP} expired from active_ips due to inactivity.`);
@@ -833,14 +824,12 @@ async function handleVLESS(env, storedData = null, ctx = null, request = null) {
 									const tB = (activeIps[b] && typeof activeIps[b] === 'object') ? activeIps[b].timestamp : activeIps[b];
 									return tB - tA;
 								});
-
 								const clientIpIndex = sortedIps.indexOf(clientIP);
 								if (user.ip_limit && user.ip_limit > 0 && clientIpIndex >= user.ip_limit) {
 									isIpLimitExpired = true;
 									console.log(`[Heartbeat] IP Limit Exceeded. Client IP index ${clientIpIndex} >= limit ${user.ip_limit}.`);
 								}
 							}
-
 							if (hasChanges || isIpLimitExpired) {
 								updatedActiveIps = JSON.stringify(activeIps);
 							}
@@ -977,16 +966,12 @@ async function handleVLESS(env, storedData = null, ctx = null, request = null) {
 				}
 			}
 			userIpLimit = user.ip_limit;
-
-			// Check IP Limit (Database-Backed)
 			if (clientIP && clientIP !== "unknown") {
 				console.log(`[VLESS Handshake] User: ${user.username}, clientIP: ${clientIP}, active_ips in DB: ${user.active_ips}`);
 				let activeIps = {};
 				try {
 					activeIps = JSON.parse(user.active_ips || '{}');
 				} catch (e) {}
-
-				// Clean up expired IPs (no activity for 30 seconds)
 				const now = Date.now();
 				for (const [ip, data] of Object.entries(activeIps)) {
 					const lastSeen = (data && typeof data === 'object') ? data.timestamp : data;
@@ -994,7 +979,6 @@ async function handleVLESS(env, storedData = null, ctx = null, request = null) {
 						delete activeIps[ip];
 					}
 				}
-
 				if (!activeIps[clientIP]) {
 					const sortedIps = Object.keys(activeIps).sort((a, b) => {
 						const tA = (activeIps[a] && typeof activeIps[a] === 'object') ? activeIps[a].timestamp : activeIps[a];
@@ -1017,7 +1001,6 @@ async function handleVLESS(env, storedData = null, ctx = null, request = null) {
 					}
 					console.log(`[VLESS Handshake] Reconnected from same IP: ${clientIP}, count: ${activeIps[clientIP].count}`);
 				}
-
 				try {
 					await env.DB.prepare("UPDATE users SET active_ips = ?, last_active = ? WHERE uuid = ?")
 						.bind(JSON.stringify(activeIps), now, reqUUID).run();
@@ -1026,7 +1009,6 @@ async function handleVLESS(env, storedData = null, ctx = null, request = null) {
 					console.error(`[VLESS Handshake] DB Update Error: ${e.message}`);
 				}
 			}
-
 			validUUID = reqUUID;
 			username = user.username;
 			isHeaderParsed = true;
@@ -2302,7 +2284,7 @@ const HTML_TEMPLATES = {
                             </div>
                         </div>
                         <div>
-                            <label class="block text-[10px] sm:text-xs font-bold text-gray-500 dark:text-zinc-400 mb-2 uppercase tracking-wider">دستگاه همزمان (IP Limit)</label>
+                            <label class="block text-[10px] sm:text-xs font-bold text-gray-500 dark:text-zinc-400 mb-2 uppercase tracking-wider">محدودیت کاربر</label>
                             <div class="relative">
                                 <span class="absolute inset-y-0 right-0 flex items-center pr-3.5 pointer-events-none text-gray-400">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
@@ -2587,7 +2569,7 @@ const HTML_TEMPLATES = {
                             <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
                         </label>
                         <div class="flex-1">
-                            <label class="block text-xs font-bold text-gray-500 dark:text-zinc-400 mb-1 uppercase tracking-wider">دستگاه همزمان (IP Limit)</label>
+                            <label class="block text-xs font-bold text-gray-500 dark:text-zinc-400 mb-1 uppercase tracking-wider">محدودیت کاربر</label>
                             <input type="number" id="bulk-input-ip-limit" min="0" placeholder="بدون تغییر" class="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm font-semibold text-gray-800 dark:text-zinc-100 placeholder-gray-400/80 transition">
                         </div>
                     </div>
@@ -3844,7 +3826,7 @@ function editUser(encodedUsername) {
                 window.location.reload();
             }
         }
-const CURRENT_VERSION = '1.5.2';
+const CURRENT_VERSION = '1.5.3';
 const UPDATE_FIX = "constsCURRENT_VERSION='d.d.d'";
 		async function checkForUpdates(isManual = false) {
             try {
