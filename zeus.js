@@ -448,6 +448,29 @@ const Router = {
 				return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { "Content-Type": "application/json" } });
 			}
 		}
+		if (url.pathname === "/api/settings/bulk") {
+			if (request.method === "GET") {
+				try {
+					const { results } = await env.DB.prepare("SELECT * FROM settings").all();
+					const settingsObj = {};
+					if (results) {
+						results.forEach(r => { settingsObj[r.key] = r.value; });
+					}
+					return new Response(JSON.stringify(settingsObj), { headers: { "Content-Type": "application/json" } });
+				} catch (e) {
+					return new Response(JSON.stringify({}), { headers: { "Content-Type": "application/json" } });
+				}
+			}
+			if (request.method === "POST") {
+				const body = await request.json();
+				if (body.settings && typeof body.settings === "object") {
+					for (const [k, v] of Object.entries(body.settings)) {
+						await env.DB.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").bind(k, String(v)).run();
+					}
+				}
+				return new Response(JSON.stringify({ success: true }), { headers: { "Content-Type": "application/json" } });
+			}
+		}
 		if (url.pathname === "/api/proxy-ip") {
 			if (request.method === "POST") {
 				const { proxy_ip, iata } = await request.json();
@@ -2706,6 +2729,13 @@ const HTML_TEMPLATES = {
                             <div class="grid grid-cols-3 sm:grid-cols-4 gap-2" id="nontls-ports-list">
                             </div>
                         </div>
+						<div class="mt-4 p-4 bg-gray-50/50 dark:bg-zinc-900/20 border border-gray-200/60 dark:border-zinc-800 rounded-2xl shadow-sm">
+                            <div class="flex items-center gap-1.5 mb-3">
+                                <span class="flex h-2 w-2 rounded-full bg-emerald-500 shadow-sm"></span>
+                                <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400">⚙️ پورت‌های دلخواه (با ویرگول انگلیسی جدا کنید)</span>
+                            </div>
+                            <input type="text" id="input-custom-ports" placeholder="8080, 2096, 5000" dir="ltr" class="w-full px-3 py-2.5 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm font-mono text-left text-gray-800 dark:text-zinc-100 transition">
+                        </div>
                     </div>
                 </div>
                 <div class="pt-4 border-t border-gray-100 dark:border-zinc-900 space-y-4">
@@ -3090,13 +3120,19 @@ const HTML_TEMPLATES = {
                             <input type="checkbox" id="bulk-apply-ports" class="sr-only peer">
                             <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
                         </label>
-                        <div class="flex-1 space-y-2">
-                            <label class="block text-xs font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-wider">پورت‌های اتصال (TLS و غیر TLS)</label>
-                            <div class="grid grid-cols-4 gap-2">
-                                <label class="flex items-center gap-1 text-[11px] text-gray-700 dark:text-zinc-300 cursor-pointer"><input type="checkbox" name="bulk-ports" value="443" class="rounded border-gray-300 dark:border-zinc-800 text-blue-600 focus:ring-blue-500"> 443</label>
-                                <label class="flex items-center gap-1 text-[11px] text-gray-700 dark:text-zinc-300 cursor-pointer"><input type="checkbox" name="bulk-ports" value="80" class="rounded border-gray-300 dark:border-zinc-800 text-blue-600 focus:ring-blue-500"> 80</label>
-                                <label class="flex items-center gap-1 text-[11px] text-gray-700 dark:text-zinc-300 cursor-pointer"><input type="checkbox" name="bulk-ports" value="2053" class="rounded border-gray-300 dark:border-zinc-800 text-blue-600 focus:ring-blue-500"> 2053</label>
-                                <label class="flex items-center gap-1 text-[11px] text-gray-700 dark:text-zinc-300 cursor-pointer"><input type="checkbox" name="bulk-ports" value="2083" class="rounded border-gray-300 dark:border-zinc-800 text-blue-600 focus:ring-blue-500"> 2083</label>
+                        <div class="flex-1 space-y-3">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 dark:text-zinc-400 mb-2 uppercase tracking-wider">پورت‌های پیش‌فرض</label>
+                                <div class="grid grid-cols-4 gap-2">
+                                    <label class="flex items-center gap-1 text-[11px] text-gray-700 dark:text-zinc-300 cursor-pointer"><input type="checkbox" name="bulk-ports" value="443" class="rounded border-gray-300 dark:border-zinc-800 text-blue-600 focus:ring-blue-500"> 443</label>
+                                    <label class="flex items-center gap-1 text-[11px] text-gray-700 dark:text-zinc-300 cursor-pointer"><input type="checkbox" name="bulk-ports" value="80" class="rounded border-gray-300 dark:border-zinc-800 text-blue-600 focus:ring-blue-500"> 80</label>
+                                    <label class="flex items-center gap-1 text-[11px] text-gray-700 dark:text-zinc-300 cursor-pointer"><input type="checkbox" name="bulk-ports" value="2053" class="rounded border-gray-300 dark:border-zinc-800 text-blue-600 focus:ring-blue-500"> 2053</label>
+                                    <label class="flex items-center gap-1 text-[11px] text-gray-700 dark:text-zinc-300 cursor-pointer"><input type="checkbox" name="bulk-ports" value="2083" class="rounded border-gray-300 dark:border-zinc-800 text-blue-600 focus:ring-blue-500"> 2083</label>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-500 dark:text-zinc-400 mb-1">پورت‌های دلخواه (با ویرگول جدا کنید)</label>
+                                <input type="text" id="bulk-input-custom-ports" placeholder="8080, 2096, 5000" dir="ltr" class="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-xs font-mono text-left text-gray-800 dark:text-zinc-100 transition">
                             </div>
                         </div>
                     </div>
@@ -3389,6 +3425,8 @@ const HTML_TEMPLATES = {
                 card.classList.add('opacity-0', 'scale-95');
                 document.getElementById('bulk-edit-form').reset();
                 window.toggleBulkFragContainer(false);
+				const bulkCustomPortInput = document.getElementById('bulk-input-custom-ports');
+				if (bulkCustomPortInput) bulkCustomPortInput.value = '';
             }
         }
         function bulkEdit() {
@@ -3412,8 +3450,11 @@ const HTML_TEMPLATES = {
             const fingerprintValue = document.getElementById('bulk-fingerprint-select').value;
             const applyPorts = document.getElementById('bulk-apply-ports').checked;
             const checkedPorts = Array.from(document.querySelectorAll('input[name="bulk-ports"]:checked')).map(cb => cb.value);
-            const portsValue = checkedPorts.join(',');
-            const tlsValue = checkedPorts.some(p => tlsPorts.includes(p)) ? 'on' : 'off';
+            const bulkCustomPortsRaw = document.getElementById('bulk-input-custom-ports') ? document.getElementById('bulk-input-custom-ports').value : '';
+            const bulkCustomPortsArray = bulkCustomPortsRaw.split(',').map(p => p.trim()).filter(p => p.length > 0);
+            const finalBulkPortsArray = checkedPorts.concat(bulkCustomPortsArray);
+            const portsValue = finalBulkPortsArray.join(',');
+            const tlsValue = finalBulkPortsArray.some(p => tlsPorts.includes(p)) ? 'on' : 'off';
             const applyIps = document.getElementById('bulk-apply-ips').checked;
             const ipsValue = document.getElementById('bulk-input-ips').value;
 			const applyFrag = document.getElementById('bulk-apply-frag').checked;
@@ -3572,6 +3613,8 @@ const HTML_TEMPLATES = {
                 const fragToggle = document.getElementById('input-frag-toggle');
                 if (fragToggle) fragToggle.checked = false;
                 window.toggleFragInputs(false);
+				const customPortInput = document.getElementById('input-custom-ports');
+				if (customPortInput) customPortInput.value = '';
             }
         }
 		function toggleUpdateModal(show, version = '') {
@@ -4062,7 +4105,9 @@ const HTML_TEMPLATES = {
             const expiry = document.getElementById('input-expiry').value || null;
             const reqLimit = document.getElementById('input-req-limit').value || null;
             const ipLimit = document.getElementById('input-ip-limit').value || null;
-            const checkedPorts = Array.from(document.querySelectorAll('input[name="ports"]:checked')).map(cb => cb.value);
+            const customPortsRaw = document.getElementById('input-custom-ports') ? document.getElementById('input-custom-ports').value : '';
+			const customPortsArray = customPortsRaw.split(',').map(p => p.trim()).filter(p => p.length > 0);
+			const checkedPorts = Array.from(document.querySelectorAll('input[name="ports"]:checked')).map(cb => cb.value).concat(customPortsArray);
             const block_porn = document.getElementById('input-block-porn').checked ? 1 : 0;
             const block_ads = document.getElementById('input-block-ads').checked ? 1 : 0;
             const isFragEnabled = document.getElementById('input-frag-toggle').checked;
@@ -4259,9 +4304,16 @@ function editUser(encodedUsername) {
     window.toggleFragInputs(hasFrag);
 
     const userPorts = String(user.port || '').split(',').map(p => p.trim());
+    const predefinedPorts = [...tlsPorts, ...nonTlsPorts];
+    const customPorts = userPorts.filter(p => !predefinedPorts.includes(p) && p !== '');
+
     document.querySelectorAll('input[name="ports"]').forEach(cb => {
         cb.checked = userPorts.includes(cb.value);
     });
+
+    const customPortInput = document.getElementById('input-custom-ports');
+    if (customPortInput) customPortInput.value = customPorts.join(', ');
+
     toggleModal(true);
 }
         async function deleteUser(encodedUsername) {
@@ -4408,23 +4460,35 @@ window.filterLocations = function() {
         renderLocationsUI(filteredLocations, activeIata);
     } catch(e) {}
 };
-        function exportUsersBackup() {
+        async function exportUsersBackup() {
             if (!window.allUsers || window.allUsers.length === 0) {
                 alert('⚠️ کاربری برای پشتیبان‌گیری وجود ندارد!');
                 return;
             }
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(window.allUsers, null, 2));
-            const downloadAnchor = document.createElement('a');
-            const dateStr = new Date().toISOString().split('T')[0];
-            downloadAnchor.setAttribute("href", dataStr);
-            downloadAnchor.setAttribute("download", "zeus_users_backup_" + dateStr + ".json");
-            document.body.appendChild(downloadAnchor);
-            downloadAnchor.click();
-            downloadAnchor.remove();
+            try {
+                const settingsRes = await fetch('/api/settings/bulk');
+                const settingsData = await settingsRes.json();
+                const backupData = {
+                    users: window.allUsers,
+                    settings: settingsData
+                };
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
+                const downloadAnchor = document.createElement('a');
+                const dateStr = new Date().toISOString().split('T')[0];
+                downloadAnchor.setAttribute("href", dataStr);
+                downloadAnchor.setAttribute("download", "zeus_full_backup_" + dateStr + ".json");
+                document.body.appendChild(downloadAnchor);
+                downloadAnchor.click();
+                downloadAnchor.remove();
+            } catch (err) {
+                alert('❌ خطا در دریافت تنظیمات برای بک‌آپ.');
+            }
         }
+
         function triggerImportBackup() {
             document.getElementById('backup-file-input').click();
         }
+
         async function importUsersBackup(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -4434,21 +4498,44 @@ window.filterLocations = function() {
                 const exportBtn = document.querySelector('button[onclick="exportUsersBackup()"]');
                 const closeBtn = document.querySelector('#settings-modal button[onclick="toggleSettingsModal(false)"]');
                 try {
-                    const backupUsers = JSON.parse(e.target.result);
-                    if (!Array.isArray(backupUsers)) {
-                        alert('❌ فایل پشتیبان نامعتبر است! ساختار فایل باید آرایه‌ای از کاربران باشد.');
+                    const parsedData = JSON.parse(e.target.result);
+                    let backupUsers = [];
+                    let backupSettings = null;
+
+                    if (Array.isArray(parsedData)) {
+                        backupUsers = parsedData;
+                    } else if (parsedData && parsedData.users && Array.isArray(parsedData.users)) {
+                        backupUsers = parsedData.users;
+                        backupSettings = parsedData.settings;
+                    } else {
+                        alert('❌ فایل پشتیبان نامعتبر است!');
                         return;
                     }
+
                     const validBackupUsers = backupUsers.filter(u => u && typeof u === 'object' && u.username);
-                    if (validBackupUsers.length === 0) {
-                        alert('❌ هیچ کاربر معتبری در فایل پشتیبان یافت نشد!');
+                    if (validBackupUsers.length === 0 && !backupSettings) {
+                        alert('❌ هیچ داده معتبری در فایل یافت نشد!');
                         return;
                     }
+
+                    if (backupSettings && Object.keys(backupSettings).length > 0) {
+                        const restoreSettings = await customConfirm('⚙️ فایل بک‌آپ شامل تنظیمات پنل نیز می‌باشد. آیا می‌خواهید تنظیمات هم بازگردانی شوند؟');
+                        if (restoreSettings) {
+                            try {
+                                await fetch('/api/settings/bulk', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ settings: backupSettings })
+                                });
+                            } catch (err) {}
+                        }
+                    }
+
                     const existingUsernames = new Set((window.allUsers || []).map(u => u.username));
                     const duplicates = validBackupUsers.filter(u => existingUsernames.has(u.username));
                     let overwrite = false;
                     if (duplicates.length > 0) {
-                        overwrite = await customConfirm('⚠️ تعداد ' + duplicates.length + ' کاربر تکراری شناسایی شد. آیا می‌خواهید اطلاعات آن‌ها با فایل پشتیبان بازنویسی شود؟\\n(در صورت انتخاب لغو، کاربران تکراری نادیده گرفته می‌شوند)');
+                        overwrite = await customConfirm('⚠️ تعداد ' + duplicates.length + ' کاربر تکراری شناسایی شد. آیا می‌خواهید اطلاعات آن‌ها بازنویسی شود؟');
                     }
                     if (importBtn) importBtn.disabled = true;
                     if (exportBtn) exportBtn.disabled = true;
@@ -4522,15 +4609,14 @@ window.filterLocations = function() {
                             } catch(err) {}
                         }
                     }
-                    alert('✅ عملیات بازیابی با موفقیت انجام شد. ' + successCount + ' کاربر بازیابی شدند.');
-                    toggleSettingsModal(false);
-                    await loadUsers(true);
+                    alert('✅ عملیات بازیابی با موفقیت انجام شد. صفحه رفرش می‌شود...');
+                    setTimeout(() => { window.location.reload(); }, 1500);
                 } catch(err) {
                     alert('❌ خطا در خواندن یا پردازش فایل پشتیبان!');
                 } finally {
                     if (importBtn) {
                         importBtn.disabled = false;
-                        importBtn.innerText = '📥 بارگذاری بک‌آپ';
+                        importBtn.innerText = '📥 بازیابی';
                     }
                     if (exportBtn) exportBtn.disabled = false;
                     if (closeBtn) closeBtn.disabled = false;
@@ -4583,7 +4669,7 @@ window.filterLocations = function() {
                 window.location.reload();
             }
         }
-const CURRENT_VERSION = '1.6.7';
+const CURRENT_VERSION = '1.6.8';
 const UPDATE_FIX = "constsCURRENT_VERSION='d.d.d'";
 		async function checkForUpdates(isManual = false) {
             try {
