@@ -2714,7 +2714,7 @@ const HTML_TEMPLATES = {
                 <div>
                     <label class="block text-xs font-medium mb-1.5 text-gray-700 dark:text-zinc-300">اوپراتور</label>
                     <select id="ip-operator-select" class="w-full px-3 py-2.5 bg-gray-50 dark:bg-amoled-input border border-gray-300 dark:border-amoled-border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700 dark:text-zinc-300 cursor-pointer">
-                        <option value="all">همه «توصیح شده»</option>
+                        <option value="all">همه (توصیه شده)</option>
                     </select>
                 </div>
                 <div>
@@ -4502,7 +4502,7 @@ async function saveSettings() {
                 window.location.reload();
             }
         }
-const CURRENT_VERSION = '1.6.3';
+const CURRENT_VERSION = '1.6.4';
 const UPDATE_FIX = "constsCURRENT_VERSION='d.d.d'";
 		async function checkForUpdates(isManual = false) {
             try {
@@ -4635,7 +4635,7 @@ async function fetchIpsList() {
 }
 function populateIpSelect() {
     const select = document.getElementById('ip-operator-select');
-    select.innerHTML = '<option value="all">All</option>';
+    select.innerHTML = '<option value="all">همه (توصیه شده)</option>';
     Object.keys(cachedIpsData).forEach(op => {
         const option = document.createElement('option');
         option.value = op;
@@ -4741,6 +4741,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
             setTimeout(() => checkForUpdates(false), 2000);
             setInterval(() => checkForUpdates(false), 60000);
+
+            window.addEventListener('click', (e) => {
+                if (e.target.id === 'user-modal') toggleModal(false);
+                if (e.target.id === 'ip-selector-modal') toggleIpSelectorModal(false);
+                if (e.target.id === 'settings-modal') toggleSettingsModal(false);
+                if (e.target.id === 'update-modal') toggleUpdateModal(false);
+                if (e.target.id === 'token-modal') toggleTokenModal(false);
+                if (e.target.id === 'qr-modal') toggleQrModal(false);
+                if (e.target.id === 'bulk-edit-modal') toggleBulkEditModal(false);
+                if (e.target.id === 'path-warning-modal') closePathWarning();
+                if (e.target.id === 'usage-warning-modal') closeUsageWarning();
+                if (e.target.id === 'free-panel-warning-modal') closeFreePanelWarning();
+                if (e.target.id === 'custom-confirm-modal') {
+                    const cancelBtn = document.getElementById('custom-confirm-cancel');
+                    if (cancelBtn) cancelBtn.click();
+                }
+            });
         });
     </script>
 </body>
@@ -5105,6 +5122,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusCard.className = 'mb-6 rounded-2xl p-4 text-center border font-bold relative z-10 bg-emerald-500/10 border-emerald-500/30 text-emerald-500 shadow-md shadow-emerald-500/5';
                 statusText.innerText = '✅ وضعیت اشتراک: فعال و متصل';
             }
+        });
+
+        window.addEventListener('click', (e) => {
+            if (e.target.id === 'qr-modal') toggleQrModal(false);
         });
     </script>
 </body>
